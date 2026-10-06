@@ -45,7 +45,7 @@ const Header = () => {
   const [goalError, setGoalError] = useState('');
   const [mainUniversitiesLoading, setMainUniversitiesLoading] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState('');
-  const [selectedSemesterData, setSelectedSemesterData] = useState(null); // ✅ full semester object
+  const [selectedSemesterData, setSelectedSemesterData] = useState(null);
   const isActive = path => location.pathname === path;
 
   // Public base URL — no token needed
@@ -69,6 +69,12 @@ const Header = () => {
 
   const toggleDropdown = state => {
     setCurrentState(currentState === state ? null : state);
+  };
+
+  // ✅ Open Login/Signup modal
+  const openLoginModal = () => {
+    setStep('login');
+    setModalVisible(true);
   };
 
   useEffect(() => {
@@ -618,12 +624,22 @@ const Header = () => {
             </div>
 
             <div className="flex gap-2">
-              <button
-                onClick={() => setModalJoinVisible(true)}
-                className="px-3 py-2 font-bold text-black bg-transparent border border-black rounded-lg hover:!bg-[#3DD455] hover:text-white"
-              >
-                Join Waitlist
-              </button>
+              {/* ✅ Login/Signup button */}
+              {isAuthenticated ? (
+                <button
+                  onClick={() => navigate('/user/home')}
+                  className="px-3 py-2 font-bold text-black bg-transparent border border-black rounded-lg hover:!bg-[#3DD455] hover:text-white transition-colors"
+                >
+                  Dashboard
+                </button>
+              ) : (
+                <button
+                  onClick={openLoginModal}
+                  className="px-3 py-2 font-bold text-black bg-transparent border border-black rounded-lg hover:!bg-[#3DD455] hover:text-white transition-colors"
+                >
+                  Login/signup
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -659,15 +675,14 @@ const Header = () => {
             }`}
           >
             <div className="flex justify-between items-center mb-4">
-              {' '}
               <img
                 onClick={() => navigate('/')}
                 src={images.newMainLogo}
                 alt="Logo"
                 className="max-w-[120px]"
-              />{' '}
-              <button onClick={() => setIsSidebarOpen(false)}>✕</button>{' '}
-            </div>{' '}
+              />
+              <button onClick={() => setIsSidebarOpen(false)}>✕</button>
+            </div>
             <div className="flex flex-col gap-3 relative">
               <span
                 onClick={() => toggleDropdown(0)}
@@ -795,16 +810,29 @@ const Header = () => {
                 </div>
               )}
 
+              {/* ✅ Login/Signup button in mobile sidebar */}
               <div className="flex flex-col gap-2 mt-4">
-                <button
-                  onClick={() => {
-                    setModalJoinVisible(true);
-                    setIsSidebarOpen(false);
-                  }}
-                  className="px-4 py-2 border border-black rounded-lg"
-                >
-                  Join Waitlist
-                </button>
+                {isAuthenticated ? (
+                  <button
+                    onClick={() => {
+                      navigate('/user/home');
+                      setIsSidebarOpen(false);
+                    }}
+                    className="px-4 py-2 border border-black rounded-lg font-bold hover:bg-[#3DD455] hover:text-white transition-colors"
+                  >
+                    Dashboard
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      openLoginModal();
+                      setIsSidebarOpen(false);
+                    }}
+                    className="px-4 py-2 border border-black rounded-lg font-bold hover:bg-[#3DD455] hover:text-white transition-colors"
+                  >
+                    Login/signup
+                  </button>
+                )}
               </div>
             </div>
           </div>
