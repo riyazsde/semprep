@@ -10,14 +10,13 @@ import images from '../../../utils/images';
 
 const TestSeriesPage1 = () => {
   const navigate = useNavigate();
-
   const { user, logout, isAuthenticated } = useContext(AuthContext);
 
   const [testSeriesList, setTestSeriesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Check authentication and fetch practice questions
+   * Check authentication and fetch test series
    */
   useEffect(() => {
     if (!isAuthenticated) {
@@ -26,31 +25,31 @@ const TestSeriesPage1 = () => {
       return;
     }
 
-    fetchPracticeQuestions();
+    fetchTestSeries();
   }, [isAuthenticated]);
 
   /**
-   * Fetch Practice Questions
+   * Fetch Test Series
    *
    * API:
-   * GET /user/practice-questions
+   * GET /user/test-series
    *
    * NOTE: The axios instance (`api`) already has `/api/v1`
    * in its baseURL, so we must NOT include it here again.
    */
-  const fetchPracticeQuestions = async () => {
+  const fetchTestSeries = async () => {
     try {
       setIsLoading(true);
 
-      const response = await api.get('/user/practice-questions');
+      const response = await api.get('/user/test-series');
 
-      console.log('Practice Questions API Response:', response);
+      console.log('Test Series API Response:', response);
 
-      const practiceQuestions = response?.data?.data || [];
+      const testSeries = response?.data?.data || [];
 
-      setTestSeriesList(practiceQuestions);
+      setTestSeriesList(testSeries);
     } catch (error) {
-      console.error('Failed to fetch practice questions:', error);
+      console.error('Failed to fetch test series:', error);
 
       setTestSeriesList([]);
 
@@ -58,7 +57,7 @@ const TestSeriesPage1 = () => {
         message:
           error?.response?.data?.message ||
           error?.message ||
-          'Failed to fetch practice questions',
+          'Failed to fetch test series',
         type: 'error',
       });
     } finally {
@@ -98,6 +97,7 @@ const TestSeriesPage1 = () => {
     return (
       test?.goalCategory?.imageUrl ||
       test?.goal?.image ||
+      test?.tileImage ||
       images.newCoursePage1Image1
     );
   };
@@ -123,7 +123,7 @@ const TestSeriesPage1 = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-900 md:text-2xl">
-                Practice Questions
+                Test Series
               </h1>
 
               <p className="mt-0.5 text-xs text-gray-500 md:text-sm">
@@ -165,7 +165,7 @@ const TestSeriesPage1 = () => {
               />
 
               <p className="mt-3 text-sm text-gray-500">
-                Loading practice questions...
+                Loading test series...
               </p>
             </div>
           ) : testSeriesList.length === 0 ? (
@@ -181,16 +181,16 @@ const TestSeriesPage1 = () => {
               </div>
 
               <h3 className="text-lg font-semibold text-gray-800">
-                No Practice Tests Available
+                No Test Series Available
               </h3>
 
               <p className="max-w-md mt-2 text-sm text-gray-500">
-                There are currently no practice tests available. Please check
+                There are currently no test series available. Please check
                 again later.
               </p>
 
               <button
-                onClick={fetchPracticeQuestions}
+                onClick={fetchTestSeries}
                 className="flex items-center gap-2 px-4 py-2 mt-5 text-sm font-medium text-white bg-[#3DD455] rounded-lg hover:bg-black transition"
               >
                 <Icon icon="mdi:refresh" width="18" height="18" />
@@ -203,10 +203,13 @@ const TestSeriesPage1 = () => {
             ========================================= */
             <div className="grid grid-cols-1 gap-4 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:p-5">
               {testSeriesList.map(test => {
-                const subjects = test?.semester?.subjects || [];
                 const tests = test?.test || [];
+                const subjects = test?.semester?.subjects || [];
                 const semesterNumber = test?.semester?.semesterNumber;
-                const isFree = Number(test?.bundleCost) === 0;
+
+                const freeCount =
+                  test?.freeTestsCount ??
+                  tests.filter(t => t?.testCost === 'Free').length;
 
                 return (
                   <div
@@ -214,29 +217,18 @@ const TestSeriesPage1 = () => {
                     className="group relative flex flex-col overflow-hidden bg-white border border-gray-200/80 rounded-xl shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:shadow-[0_8px_20px_-6px_rgba(16,24,40,0.15)] hover:-translate-y-0.5 hover:border-green-200 transition-all duration-300"
                   >
                     {/* =============================================
-                        TOP GRADIENT BANNER (compact)
+                        TOP GRADIENT BANNER (no price badge)
                     ============================================= */}
                     <div className="relative h-16 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500">
                       <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" />
                       <div className="absolute -bottom-6 -left-3 w-16 h-16 rounded-full bg-white/10" />
-
-                      {/* Price badge */}
-                      <span
-                        className={`absolute top-2 right-2 px-2 py-0.5 text-[10px] font-extrabold tracking-wide rounded-full shadow-sm ${
-                          isFree
-                            ? 'bg-white text-green-700'
-                            : 'bg-white text-orange-600'
-                        }`}
-                      >
-                        {isFree ? 'FREE' : `₹${test?.bundleCost || 0}`}
-                      </span>
 
                       {/* Avatar */}
                       <div className="absolute -bottom-6 left-4">
                         <div className="flex items-center justify-center w-12 h-12 overflow-hidden bg-white border-[3px] border-white rounded-xl shadow-sm">
                           <img
                             src={getTestImage(test)}
-                            alt={test?.goalCategory?.name || 'Practice Test'}
+                            alt={test?.goalCategory?.name || 'Test Series'}
                             className="object-cover w-full h-full"
                             onError={event => {
                               event.currentTarget.src =
@@ -253,7 +245,7 @@ const TestSeriesPage1 = () => {
                     <div className="flex flex-col flex-1 p-3.5 pt-9">
                       {/* Title */}
                       <h2 className="text-sm font-bold leading-5 text-gray-900 line-clamp-2 group-hover:text-green-700 transition-colors">
-                        {test?.bundleName || 'Practice Test Bundle'}
+                        {test?.bundleName || 'Test Series Bundle'}
                       </h2>
 
                       {/* Description */}
@@ -302,7 +294,7 @@ const TestSeriesPage1 = () => {
                               Tests
                             </p>
                             <p className="text-xs font-bold text-gray-900 leading-tight mt-0.5">
-                              {tests.length}
+                              {tests.length || test?.testCount || 0}
                             </p>
                           </div>
                         </div>
@@ -319,7 +311,7 @@ const TestSeriesPage1 = () => {
                               Free
                             </p>
                             <p className="text-xs font-bold text-gray-900 leading-tight mt-0.5">
-                              {test?.freeTestsCount || 0}
+                              {freeCount}
                             </p>
                           </div>
                         </div>
@@ -346,7 +338,7 @@ const TestSeriesPage1 = () => {
                     </div>
 
                     {/* =============================================
-                        FOOTER CTA (compact)
+                        FOOTER CTA
                     ============================================= */}
                     <div className="p-3.5 pt-0">
                       <button
