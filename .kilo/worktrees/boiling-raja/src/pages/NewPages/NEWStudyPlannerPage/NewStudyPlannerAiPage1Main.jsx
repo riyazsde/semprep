@@ -60,7 +60,7 @@ const NewStudyPlannerAiPage1Main = () => {
         <div className="bg-[#EFEFEF] p-3 rounded-lg md:min-h-[calc(100vh-48px)]">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">Create Your Personalized</h1>
-            <h1 className="text-4xl font-bold text-gray-900">Study Schedule</h1>
+            <h1 className="text-4xl font-bold text-gray-900">Stud Schedule</h1>
           </div>
           <div className="flex items-center flex-wrap justify-between my-3">
             <div className="flex-grow">

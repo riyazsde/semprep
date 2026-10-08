@@ -5,12 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { UserMenuBar } from '../../../components/common/MenuBar';
 import HOC from '../../../components/layout/HOC';
 import { AuthContext } from '../../../Context/AuthContext';
-import { userApi } from '../../../services/apiFunctions';
 import { showNotification } from '../../../services/exportComponents';
 
 const PYQSubjects = () => {
   const navigate = useNavigate();
-  const { user, logout, isAuthenticated } = useContext(AuthContext);
+  const { user, logout, isAuthenticated, token } = useContext(AuthContext);
 
   const [testSeriesList, setTestSeriesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,77 +24,99 @@ const PYQSubjects = () => {
     }
 
     fetchTestSeries();
-  }, [isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, token]);
 
-  const fetchTestSeries = () => {
+  const fetchTestSeries = async () => {
     setIsLoading(true);
 
-    if (!userApi?.subjects?.getAll) {
-      console.error('userApi.subjects.getAll is not available');
+    // Get token from context, fallback to localStorage
+    const authToken =
+      token ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('authToken') ||
+      localStorage.getItem('accessToken') ||
+      user?.token;
 
-      setTestSeriesList([]);
-      setIsLoading(false);
-
+    // If no token at all, redirect to login
+    if (!authToken) {
       showNotification({
-        message: 'Test series API is not configured.',
+        message: 'Session expired. Please login again.',
         type: 'error',
       });
-
+      logout();
+      navigate('/login', { replace: true });
       return;
     }
 
-    const params = {};
-
-    if (user?.semester !== undefined && user?.semester !== null) {
-      params.semester = user.semester;
-    }
-
-    userApi.subjects.getAll({
-      params,
-
-      onSuccess: res => {
-        console.log('Test Series Response:', res);
-
-        let list = [];
-
-        if (Array.isArray(res?.data)) {
-          list = res.data;
-        } else if (Array.isArray(res?.data?.data)) {
-          list = res.data.data;
-        } else if (Array.isArray(res?.data?.subjects)) {
-          list = res.data.subjects;
-        } else if (Array.isArray(res?.data?.testSeries)) {
-          list = res.data.testSeries;
-        } else if (Array.isArray(res?.data?.bundles)) {
-          list = res.data.bundles;
-        } else if (Array.isArray(res?.subjects)) {
-          list = res.subjects;
+    try {
+      const response = await fetch(
+        'https://prep-project-zej8.onrender.com/api/v1/user/previous-year-questions',
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
         }
+      );
 
-        setTestSeriesList(list);
-        setIsLoading(false);
-      },
-
-      onError: error => {
-        console.error('Failed to fetch test series:', error);
-
-        setTestSeriesList([]);
-        setIsLoading(false);
-
+      // Handle unauthorized / forbidden
+      if (response.status === 401 || response.status === 403) {
+        const errorData = await response.json().catch(() => ({}));
         showNotification({
           message:
-            error?.response?.data?.message ||
-            error?.message ||
-            'Failed to load test series.',
+            errorData?.message ||
+            'Session expired. Please login again.',
           type: 'error',
         });
-      },
-    });
+        logout();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const res = await response.json();
+      console.log('Test Series Response:', res);
+
+      let list = [];
+
+      // Handle different possible response structures
+      if (Array.isArray(res?.data)) {
+        list = res.data;
+      } else if (Array.isArray(res?.data?.data)) {
+        list = res.data.data;
+      } else if (Array.isArray(res?.data?.subjects)) {
+        list = res.data.subjects;
+      } else if (Array.isArray(res?.data?.testSeries)) {
+        list = res.data.testSeries;
+      } else if (Array.isArray(res?.data?.bundles)) {
+        list = res.data.bundles;
+      } else if (Array.isArray(res?.subjects)) {
+        list = res.subjects;
+      }
+
+      setTestSeriesList(list);
+    } catch (error) {
+      console.error('Failed to fetch test series:', error);
+      setTestSeriesList([]);
+      showNotification({
+        message:
+          error?.response?.data?.message ||
+          error?.message ||
+          'Failed to load test series. Please try again later.',
+        type: 'error',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleStart = test => {
     // Don't use the page's isLoading state here.
-    // Otherwise the entire page/card section can show loading.
     if (!user?.isSubscribed) {
       showNotification({
         message: 'Please subscribe to access this feature',
@@ -146,7 +167,6 @@ const PYQSubjects = () => {
 
       <div className="px-3 sm:px-4 md:px-6 py-4">
         <div className="bg-white rounded-xl">
-
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -191,7 +211,7 @@ const PYQSubjects = () => {
               </p>
 
               <p className="text-xs text-gray-400 mt-1">
-                Please check your semester or try again.
+                Please check back later or try again.
               </p>
 
               <button
@@ -218,21 +238,21 @@ const PYQSubjects = () => {
               {testSeriesList.map((test, index) => {
                 const testId = test?._id || test?.id || index;
 
-                const subCount = Array.isArray(test?.subSubject)
-                  ? test.subSubject.length
-                  : Array.isArray(test?.subjects)
-                  ? test.subjects.length
-                  : 0;
+                const subCount =
+                  test?.testCount ||
+                  (Array.isArray(test?.test) ? test.test.length : 0) ||
+                  (Array.isArray(test?.subSubject)
+                    ? test.subSubject.length
+                    : 0) ||
+                  (Array.isArray(test?.subjects)
+                    ? test.subjects.length
+                    : 0) ||
+                  0;
 
-                const goalName =
-                  test?.goal?.name ||
-                  test?.goalName ||
-                  '';
+                const goalName = test?.goal?.name || test?.goalName || '';
 
                 const goalCategoryName =
-                  test?.goalCategory?.name ||
-                  test?.goalCategoryName ||
-                  '';
+                  test?.goalCategory?.name || test?.goalCategoryName || '';
 
                 const title =
                   test?.bundleName ||
@@ -241,9 +261,7 @@ const PYQSubjects = () => {
                   'Untitled Test Series';
 
                 const description =
-                  test?.bundleDescription ||
-                  test?.description ||
-                  '';
+                  test?.bundleDescription || test?.description || '';
 
                 const isStarting = startingTestId === testId;
 
@@ -319,11 +337,16 @@ const PYQSubjects = () => {
                           {test.language}
                         </span>
                       )}
+
+                      {test?.locale && !test?.language && (
+                        <span className="px-2 py-0.5 rounded-md bg-gray-200 text-gray-700 text-[10px] font-medium">
+                          {test.locale}
+                        </span>
+                      )}
                     </div>
 
                     {/* Info */}
                     <div className="mt-3 space-y-1.5">
-
                       {subCount > 0 && (
                         <div className="flex items-center gap-2 text-xs text-gray-600">
                           <Icon
@@ -333,8 +356,7 @@ const PYQSubjects = () => {
                           />
 
                           <span>
-                            {subCount} sub-topic
-                            {subCount > 1 ? 's' : ''}
+                            {subCount} test{subCount > 1 ? 's' : ''}
                           </span>
                         </div>
                       )}
@@ -347,11 +369,22 @@ const PYQSubjects = () => {
                         />
 
                         <span className="truncate">
-                          {test?.locale ||
-                            test?.language ||
-                            'Global'}
+                          {test?.locale || test?.language || 'Global'}
                         </span>
                       </div>
+
+                      {test?.semester?.semesterNumber && (
+                        <div className="flex items-center gap-2 text-xs text-gray-600">
+                          <Icon
+                            icon="solar:book-linear"
+                            width="14"
+                            height="14"
+                          />
+                          <span>
+                            Semester {test.semester.semesterNumber}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Description */}
