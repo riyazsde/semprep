@@ -106,6 +106,32 @@ const UserHome = (props) => {
   };
 
   // =========================================================
+  // SEMESTER LABEL HELPERS
+  // Prefer the API-provided semesterLabel; fall back to
+  // "SEM <n>" if only a number is available; finally, the id.
+  // =========================================================
+  const getSemesterLabel = (planOrSub) => {
+    if (!planOrSub) return '';
+
+    const plan =
+      planOrSub?.subscriptionPlanId && typeof planOrSub.subscriptionPlanId === 'object'
+        ? planOrSub.subscriptionPlanId
+        : planOrSub;
+
+    if (plan?.semesterLabel) return plan.semesterLabel;
+
+    const sem = plan?.semester;
+    if (sem && typeof sem === 'object') {
+      if (sem.semesterLabel) return sem.semesterLabel;
+      if (sem.semesterNumber) return `SEM ${sem.semesterNumber}`;
+      if (sem.name) return sem.name;
+      return sem._id || '';
+    }
+
+    return '';
+  };
+
+  // =========================================================
   // FETCH COURSES
   // =========================================================
   const fetchCourses = () => {
@@ -249,7 +275,9 @@ const UserHome = (props) => {
   };
 
   // =========================================================
-  // FETCH CURRENT SUBSCRIPTION (returns a Promise)
+  // FETCH CURRENT SUBSCRIPTION FOR THE USER'S SEMESTER
+  //   GET /user/user-subscription/me?semester=<semesterId>
+  // Returns the active subscription, or data: null.
   // =========================================================
   const fetchSubScription = (semesterOverride) => {
     const semester = resolveSemester(semesterOverride);
@@ -293,22 +321,41 @@ const UserHome = (props) => {
   };
 
   // =========================================================
-  // FETCH ALL SUBSCRIPTION PLANS
+  // FETCH ALL PLANS FOR A SEMESTER
+  //   GET /user/subscription-plans?semester=&goalCategory=&goal=&course=
   // =========================================================
   const fetchSubscriptionPlans = (semesterOverride) => {
     const semester = resolveSemester(semesterOverride);
+    const goalCategory =
+      user?.goalCategory || sessionStorage.getItem('universityId') || '';
+    const goal = user?.goal || sessionStorage.getItem('courseId') || '';
 
     return new Promise((resolve) => {
       setLoadingSubscriptions(true);
 
       userApi.subscriptions.getAll({
-        params: { semester },
+        params: {
+          semester,
+          goalCategory,
+          goal,
+          // course is optional per spec; omit unless you have one
+        },
         showMsg: false,
         onSuccess: (res) => {
           let plans = [];
           if (Array.isArray(res?.data)) plans = res.data;
           else if (Array.isArray(res?.data?.data)) plans = res.data.data;
           else if (Array.isArray(res)) plans = res;
+
+          // Defensive: keep only plans matching the current semester.
+          // API already filters, but this protects against stale data.
+          if (semester) {
+            plans = plans.filter((p) => {
+              const s = p?.semester;
+              const pid = typeof s === 'object' ? s?._id : s;
+              return !pid || String(pid) === String(semester);
+            });
+          }
 
           setSubscriptions(plans);
           setLoadingSubscriptions(false);
@@ -322,6 +369,23 @@ const UserHome = (props) => {
         },
       });
     });
+  };
+
+  // =========================================================
+  // FETCH SUBSCRIPTION HISTORY (for the current semester)
+  //   GET /user/user-subscription/get?semester=<semesterId>
+  // =========================================================
+  const fetchSubscriptionHistory = (semesterOverride) => {
+    const semester = resolveSemester(semesterOverride);
+
+    return userApi.subscriptions.getHistory
+      ? userApi.subscriptions.getHistory({
+          params: { semester },
+          showMsg: false,
+          onSuccess: () => {},
+          onError: () => {},
+        })
+      : Promise.resolve([]);
   };
 
   // =========================================================
@@ -421,6 +485,9 @@ const UserHome = (props) => {
 
   // =========================================================
   // HANDLE SUBSCRIPTION (Free + Paid)
+  //   POST /user/user-subscription/add
+  //   Body: { subscriptionPlanId, paymentMode, couponCode,
+  //           useWallet, taxAmount, transactionId }
   // =========================================================
   const handleSubscribe = (sub) => {
     if (!sub?._id) {
@@ -432,6 +499,8 @@ const UserHome = (props) => {
 
     setLoadingPlanId(sub._id);
 
+    const semester = resolveSemester();
+
     const originalPrice = Number(sub?.originalPrice || 0);
     const discountPrice = Number(sub?.discountPrice ?? originalPrice);
     const planPrice = sub?.discountActive ? discountPrice : originalPrice;
@@ -442,11 +511,13 @@ const UserHome = (props) => {
       showMsg: false,
       data: {
         subscriptionPlanId: sub._id,
-        paymentMode: isFree ? 'free' : 'pending',
+        semester, // keep the semester explicit on the payload
+        paymentMode: isFree ? 'wallet' : 'pending',
         taxAmount: 0,
-        paymentStatus: isFree ? 'completed' : 'pending',
         couponCode: selectedCoupons || '',
         useWallet: true,
+        transactionId: isFree ? `FREE-${Date.now()}` : '',
+        paymentStatus: isFree ? 'completed' : 'pending',
       },
       onSuccess: (response) => {
         const subscriptionData = response?.data;
@@ -484,7 +555,7 @@ const UserHome = (props) => {
             id: subscriptionId,
             showMsg: false,
             data: {
-              paymentMode: 'free',
+              paymentMode: 'wallet',
               paymentStatus: 'completed',
               transactionId:
                 subscriptionData?.transactionId || `FREE-${Date.now()}`,
@@ -865,7 +936,7 @@ const UserHome = (props) => {
                 Choose Your Plan
               </h2>
               <p className="mt-2 text-sm text-gray-500">
-                Select a subscription plan to continue.
+                Plans for {getSemesterLabel(currentSubscription) || 'your semester'}.
               </p>
             </div>
 
@@ -879,6 +950,13 @@ const UserHome = (props) => {
                       'Active Plan'}
                   </strong>
                 </p>
+                {(currentSubscription?.subscriptionPlanId?.semesterLabel ||
+                  currentSubscription?.semesterLabel) && (
+                  <p className="mt-1 text-xs text-green-700">
+                    {currentSubscription?.subscriptionPlanId?.semesterLabel ||
+                      currentSubscription?.semesterLabel}
+                  </p>
+                )}
                 {currentSubscription?.endDate && (
                   <p className="mt-1 text-xs text-green-700">
                     Expires on {formatDate(currentSubscription.endDate)}
@@ -905,6 +983,7 @@ const UserHome = (props) => {
                     ? discountPrice
                     : originalPrice;
                   const currentPlan = isCurrentPlan(sub);
+                  const semLabel = getSemesterLabel(sub);
 
                   return (
                     <div
@@ -917,9 +996,16 @@ const UserHome = (props) => {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {sub?.name || 'Subscription Plan'}
-                          </h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900">
+                              {sub?.name || 'Subscription Plan'}
+                            </h3>
+                            {semLabel && (
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                {semLabel}
+                              </span>
+                            )}
+                          </div>
                           {sub?.desc && (
                             <p className="mt-1 text-sm text-gray-500">
                               {sub.desc}
@@ -955,7 +1041,13 @@ const UserHome = (props) => {
                       {sub?.duration && (
                         <p className="mt-2 text-xs text-gray-500">
                           Duration: {sub.duration}{' '}
-                          {Number(sub.duration) === 1 ? 'month' : 'days'}
+                          {Number(sub.duration) === 1 ? 'month' : 'months'}
+                        </p>
+                      )}
+
+                      {sub?.endDate && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          Valid till: {formatDate(sub.endDate)}
                         </p>
                       )}
 
@@ -1010,7 +1102,8 @@ const UserHome = (props) => {
                   No Subscription Plans Found
                 </h3>
                 <p className="mt-2 text-sm text-gray-500">
-                  No active subscription plans are currently available.
+                  No active subscription plans are available for this
+                  semester.
                 </p>
                 <button
                   type="button"
@@ -1228,6 +1321,16 @@ const UserHome = (props) => {
                       <p className="text-xs font-semibold text-gray-500 text-center uppercase">
                         Current Plan
                       </p>
+
+                      {(currentSubscription?.subscriptionPlanId?.semesterLabel ||
+                        currentSubscription?.semesterLabel) && (
+                        <p className="mt-1 text-xs text-center font-medium text-blue-600">
+                          {currentSubscription?.subscriptionPlanId
+                            ?.semesterLabel ||
+                            currentSubscription?.semesterLabel}
+                        </p>
+                      )}
+
                       <p className="mt-1 text-base font-bold text-gray-900 text-center">
                         {currentSubscription?.subscriptionPlanId?.name ||
                           currentSubscription?.subscriptionPlanId ||

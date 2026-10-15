@@ -48,6 +48,7 @@ export const userApi = {
   subscriptions: {
     getSubscription: createApiRequest('GET', 'user/user-subscription/me'),
     getAll: createApiRequest('GET', 'user/subscription-plans'),
+     getById: createApiRequest('GET', id => `user/subscription-plan/${id}`),
     create: createApiRequest('POST', `user/user-subscription/add`),
     update: createApiRequest('PUT', id => `user/user-subscription/payment/${id}`),
     coupons: {
