@@ -3,6 +3,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ReusableModal } from '../../components/common/ComPrepComponent/ComPrepComponent';
 import { userApi } from '../../services/apiFunctions';
+import { getAuthHeaders } from '../../services/api';
 import images from '../../utils/images';
 import { useForm } from 'react-hook-form';
 import { ProfileEditFormMain } from '../../components/common/New-Components/NewComponent';
@@ -691,6 +692,7 @@ const PricingPage = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           amount: Math.max(100, Math.round(amount * 100)),
@@ -730,6 +732,7 @@ const PricingPage = () => {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeaders(),
               },
               body: JSON.stringify({
                 razorpay_payment_id: response.razorpay_payment_id,

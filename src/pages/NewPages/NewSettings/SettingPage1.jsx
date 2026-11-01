@@ -5,6 +5,7 @@ import { UserMenuBar } from '../../../components/common/MenuBar';
 import HOC from '../../../components/layout/HOC';
 import { AuthContext } from '../../../Context/AuthContext';
 import { userApi } from '../../../services/apiFunctions';
+import { getAuthHeaders } from '../../../services/api';
 import { formatTimeSpentTimeLine } from '../../../utils/constants';
 import images from '../../../utils/images';
 import TutorialVideoImage from '../../../assets/images/tutorialBanner.jpg';
@@ -570,7 +571,10 @@ const SettingPage1 = () => {
         `https://api.semprep.com/api/create-order`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({
             amount: Math.max(100, Math.round(Number(amount) * 100)),
             currency: 'INR',
@@ -601,7 +605,10 @@ const SettingPage1 = () => {
               `https://api.semprep.com/api/verify-payment`,
               {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...getAuthHeaders(),
+                },
                 body: JSON.stringify({
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_order_id: response.razorpay_order_id,

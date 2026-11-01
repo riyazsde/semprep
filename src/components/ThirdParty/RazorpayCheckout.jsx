@@ -1,4 +1,5 @@
 import { showNotification } from '../common/APIComponents';
+import { getAuthHeaders } from '../../services/api';
 
 export const loadRazorpayScript = () =>
   new Promise(resolve => {
@@ -17,6 +18,7 @@ const createOrder = async amount => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({
         amount: Math.max(100, Math.round(amount * 100)),
@@ -41,6 +43,7 @@ const verifyPayment = async response => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({
         razorpay_payment_id: response.razorpay_payment_id,

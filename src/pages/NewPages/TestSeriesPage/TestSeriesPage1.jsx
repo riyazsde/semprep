@@ -41,7 +41,12 @@ const TestSeriesPage1 = () => {
     try {
       setIsLoading(true);
 
-      const response = await api.get('/user/test-series');
+      const semesterId = sessionStorage.getItem('semesterId');
+      const response = await api.get('/user/test-series', {
+        params: {
+          semester: semesterId || undefined,
+        },
+      });
 
       console.log('Test Series API Response:', response);
 

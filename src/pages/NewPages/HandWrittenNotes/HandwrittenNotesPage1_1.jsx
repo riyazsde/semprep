@@ -39,11 +39,13 @@ const HandwrittenNotesPage1 = () => {
         }
         setError("");
 
+        const semesterId = sessionStorage.getItem("semesterId");
         const response = await userApi.handWrittenNotes.getAll({
           params: {
             _t: Date.now(),
             page: pageNum,
             limit: PAGE_SIZE,
+            semester: semesterId || undefined,
           },
         });
 

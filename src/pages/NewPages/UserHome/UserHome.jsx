@@ -8,6 +8,7 @@ import HOC from '../../../components/layout/HOC';
 import NotificationDrawer from '../../../components/ThirdParty/NotificationDrawer';
 import { AuthContext } from '../../../Context/AuthContext';
 import { userApi } from '../../../services/apiFunctions';
+import { getAuthHeaders } from '../../../services/api';
 import { showNotification } from '../../../services/exportComponents';
 import images from '../../../utils/images';
 import ModalBannerVideos from './ModalBannerVideos';
@@ -151,7 +152,7 @@ const UserHome = (props) => {
       },
       setIsLoading,
       onSuccess: (res) => {
-        setCourses(res?.data || []);
+        setCourses(Array.isArray(res?.data) ? res.data : []);
       },
       onError: (err) => {
         setCourses([]);
@@ -781,7 +782,10 @@ const UserHome = (props) => {
         'https://api.semprep.com/api/create-order',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({
             amount: Math.max(100, Math.round(Number(amount) * 100)),
             currency: 'INR',
@@ -812,7 +816,10 @@ const UserHome = (props) => {
               'https://api.semprep.com/api/verify-payment',
               {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...getAuthHeaders(),
+                },
                 body: JSON.stringify({
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_order_id: response.razorpay_order_id,
@@ -1191,6 +1198,10 @@ const UserHome = (props) => {
 
                 {isLoading ? (
                   <div className="text-center py-4">Loading...</div>
+                ) : courses.length === 0 ? (
+                  <div className="rounded-lg bg-gray-50 px-4 py-10 text-center text-gray-500">
+                    No data found.
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {courses?.map((course, idx) => (

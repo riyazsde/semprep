@@ -25,11 +25,15 @@ const PyqWithVideoPage1 = () => {
   }, [isAuthenticated, goal]);
 
   const fetchTestSeries = () => {
+    const semesterId =
+      sessionStorage.getItem('semesterId') ||
+      (typeof semester === 'object' ? semester?._id : semester);
+
     userApi.pyq.getAll({
       setIsLoading,
       params: {
         subject: id,
-        semester,
+        semester: semesterId,
       },
       onSuccess: res => {
         setTestSeriesList(res?.data || []);

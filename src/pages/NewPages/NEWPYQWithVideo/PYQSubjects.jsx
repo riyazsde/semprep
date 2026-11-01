@@ -51,8 +51,12 @@ const PYQSubjects = () => {
     }
 
     try {
+      const semesterId = sessionStorage.getItem('semesterId');
+      const semesterQuery = semesterId
+        ? `?semester=${encodeURIComponent(semesterId)}`
+        : '';
       const response = await fetch(
-        'https://prep-project-zej8.onrender.com/api/v1/user/previous-year-questions',
+        `https://prep-project-zej8.onrender.com/api/v1/user/previous-year-questions${semesterQuery}`,
         {
           method: 'GET',
           headers: {

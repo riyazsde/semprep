@@ -11,6 +11,15 @@ const api = axios.create({
   timeout: 60000,
 });
 
+export const getAuthHeaders = () => {
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    throw new Error("Authentication required. Please log in again.");
+  }
+
+  return { Authorization: `Bearer ${token}` };
+};
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
